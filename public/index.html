@@ -1,0 +1,128 @@
+<!doctype html>
+<html>
+
+<head>
+  <title>Timeline | MyAnimeList</title>
+  <script type="text/javascript"
+    src="https://unpkg.com/vis-timeline@latest/standalone/umd/vis-timeline-graph2d.min.js"></script>
+  <link href="https://unpkg.com/vis-timeline@latest/styles/vis-timeline-graph2d.min.css" rel="stylesheet"
+    type="text/css" />
+  <style type="text/css">
+    #visualization {
+      height: 90vh;
+    }
+  </style>
+</head>
+
+<body>
+  <label for="animeId">Anime ID:</label>
+  <input type="text" id="animeId" name="animeId" onkeypress="onEnter(event)">
+  <br>
+  <input type="button" value="Submit" onclick="onEnter()">
+  <br><br>
+  <div id="visualization"></div>
+  <script type="text/javascript">
+    var queryId = new URLSearchParams(window.location.search).get('id');
+    var earliestDate, latestDate = null;
+
+    if (queryId != null) {
+      // DOM element where the Timeline will be attached
+      var container = document.getElementById('visualization');
+
+      // Create a DataSet (allows two way data-binding)
+      var items = new vis.DataSet();
+
+      fetch('getData.php?id=' + queryId)
+        .then(response => response.json())
+        .then(data => {
+          console.log(data);
+
+          if (data['error']) return;
+
+          Promise.all(addRelatedAnimeToTimeline(items, data));
+
+          //console.log(earliestDate);
+          //console.log(latestDate);
+
+          // Configuration for the Timeline
+          var options = {
+            align: 'center',
+            height: '100%',
+            //autoResize: false,
+            // Can only soom in to 7 days (in milliseconds)
+            zoomMin: 604800000,
+            // Can only zoom out to 5 years (in milliseconds)
+            zoomMax: 157788000000,
+            //start: earliestDate,
+            //end: latestDate
+          };
+
+          // Create a Timeline
+          var timeline = new vis.Timeline(container, items, options);
+          timeline.fit();
+        });
+    }
+
+    function getAnimeTimeline(id) {
+      window.location.href = "?id=" + id;
+    }
+
+    function onEnter(event) {
+      var id = document.getElementById("animeId").value;
+
+      if (event == null) {
+        getAnimeTimeline(id);
+        return;
+      }
+
+      if (event.key === "Enter") {
+        getAnimeTimeline(id);
+      }
+    }
+
+    function addRelatedAnimeToTimeline(items, data) {
+      var promises = [];
+
+      var animeId = data['id'];
+
+      if (items.get(animeId) != null) return;
+      var html = "<img src='" + data['main_picture']['medium'] + "'><p>" + data['title'] + "</p>";
+      var startDate = data['start_date'];
+      var endDate = data['end_date'];
+
+      dateCheck(startDate, 0);
+      dateCheck(endDate, 1);
+
+      if (endDate != null) {
+        items.add({ id: animeId, type: "range", content: html, start: startDate, end: endDate });
+      } else {
+        items.add({ id: animeId, type: "point", content: html, start: startDate });
+      }
+
+      data['related_anime'].forEach(element => {
+        console.log(element);
+
+        promises.push(fetch('getData.php?id=' + element['node']['id'])
+          .then(response => response.json())
+          .then(relatedData => {
+            promises.concat(addRelatedAnimeToTimeline(items, relatedData));
+          }));
+      });
+
+      return promises;
+    }
+
+    function dateCheck(date, int) {
+      date = new Date(date);
+      var dateTime = date.getTime();
+
+      if(int === 0 && (earliestDate == null || dateTime > earliestDate.getTime())) {
+        earliestDate = date;
+      } else if (int === 1 && (latestDate == null || dateTime > latestDate.getTime())) {
+        latestDate = date;
+      }
+    }
+  </script>
+</body>
+
+</html>
