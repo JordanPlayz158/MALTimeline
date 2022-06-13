@@ -10,11 +10,13 @@ if($id == 0) return;
 // create curl resource
 $ch = curl_init();
 
+$configContent = file_get_contents("../config.json");
+$config = json_decode($configContent, true);
+$apiClientId = $config['X-MAL-CLIENT-ID'];
+
 // set url
 curl_setopt($ch, CURLOPT_URL, "https://api.myanimelist.net/v2/anime/$id?fields=start_date,end_date,related_anime");
-curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-    'X-MAL-CLIENT-ID: 60488e4c53bff6743ba653ba0c5510dc'
-));
+curl_setopt($ch, CURLOPT_HTTPHEADER, array("X-MAL-CLIENT-ID: $apiClientId"));
 
 //return the transfer as a string
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
